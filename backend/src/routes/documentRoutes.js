@@ -13,8 +13,9 @@ function createDocumentRouter({ documentService, storageDir, maxFileSizeBytes })
   const upload = multer({
     storage,
     limits: {
-      fileSize: maxFileSizeBytes + 1,
+      fileSize: maxFileSizeBytes,
       files: 1,
+      fields: 0,
       parts: 2,
     },
   });
@@ -26,6 +27,10 @@ function createDocumentRouter({ documentService, storageDir, maxFileSizeBytes })
       }
 
       if (error instanceof multer.MulterError) {
+        return next(error);
+      }
+
+      if (['EACCES', 'EMFILE', 'ENFILE', 'ENOSPC', 'EROFS'].includes(error.code)) {
         return next(error);
       }
 

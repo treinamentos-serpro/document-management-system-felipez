@@ -18,8 +18,11 @@ const LocalFileRepository = require('./repositories/localFileRepository');
 const DocumentService = require('./services/documentService');
 const ApplicationError = require('./services/applicationError');
 const { createDocumentRouter } = require('./routes/documentRoutes');
+const { createAuthenticate } = require('./middleware/authenticate');
 
 const DEFAULT_MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+const DEFAULT_MAX_STORAGE_BYTES = 1024 * 1024 * 1024;
+const DEFAULT_MAX_DOCUMENTS_PER_OWNER = 500;
 
 function getMaxFileSizeBytes(options) {
   const configuredValue = options.maxFileSizeBytes ?? (
@@ -29,6 +32,28 @@ function getMaxFileSizeBytes(options) {
   return Number.isSafeInteger(configuredValue) && configuredValue > 0
     ? configuredValue
     : DEFAULT_MAX_FILE_SIZE_BYTES;
+}
+
+function getPositiveInteger(value, fallback) {
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function getUserTokens(options) {
+  const configuredTokens = options.userTokens ?? process.env.DMS_USER_TOKENS;
+  if (configuredTokens === undefined || configuredTokens === '') {
+    return null;
+  }
+
+  if (typeof configuredTokens !== 'string') {
+    return configuredTokens;
+  }
+
+  try {
+    return JSON.parse(configuredTokens);
+  } catch {
+    return null;
+  }
 }
 
 function createApp(options = {}) {
@@ -42,12 +67,21 @@ function createApp(options = {}) {
     documentRepository,
     fileRepository,
     owner: options.owner || process.env.DMS_DEFAULT_OWNER || 'local',
+    maxStorageBytes: options.maxStorageBytes ?? getPositiveInteger(
+      Number(process.env.MAX_STORAGE_MB || 1024) * 1024 * 1024,
+      DEFAULT_MAX_STORAGE_BYTES,
+    ),
+    maxDocumentsPerOwner: options.maxDocumentsPerOwner ?? getPositiveInteger(
+      process.env.MAX_DOCUMENTS_PER_OWNER,
+      DEFAULT_MAX_DOCUMENTS_PER_OWNER,
+    ),
   });
 
   app.use(express.json());
   app.get('/health', (req, res) => {
     res.json({ status: 'ok' });
   });
+  app.use(createAuthenticate(getUserTokens(options)));
   app.use(createDocumentRouter({
     documentService,
     storageDir,

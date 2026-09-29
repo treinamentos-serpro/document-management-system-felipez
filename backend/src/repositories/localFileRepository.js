@@ -7,7 +7,14 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 class LocalFileRepository {
   constructor(storageDir) {
     this.storageDir = path.resolve(storageDir);
-    fs.mkdirSync(this.storageDir, { recursive: true });
+    fs.mkdirSync(this.storageDir, { recursive: true, mode: 0o700 });
+    const storageStat = fs.lstatSync(this.storageDir);
+    if (!storageStat.isDirectory() || storageStat.isSymbolicLink()) {
+      throw new Error('O caminho de storage deve ser um diretório local real.');
+    }
+    if (process.platform !== 'win32' && (storageStat.mode & 0o077) !== 0) {
+      fs.chmodSync(this.storageDir, 0o700);
+    }
   }
 
   getPath(storageName) {
@@ -38,6 +45,26 @@ class LocalFileRepository {
         throw error;
       }
     }
+  }
+
+  async getUsageBytes() {
+    const entries = await fsPromises.readdir(this.storageDir, { withFileTypes: true });
+    let totalBytes = 0;
+
+    for (const entry of entries) {
+      if (!entry.isFile() || !UUID_PATTERN.test(entry.name)) continue;
+
+      try {
+        const fileStat = await fsPromises.lstat(path.join(this.storageDir, entry.name));
+        if (fileStat.isFile() && !fileStat.isSymbolicLink()) {
+          totalBytes += fileStat.size;
+        }
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+      }
+    }
+
+    return totalBytes;
   }
 }
 

@@ -104,6 +104,66 @@ input:focus-visible + span {
   box-shadow: 0 0 0 3px #dfeadd;
 }
 
+.session-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.session-button {
+  border: 0;
+  background: transparent;
+  color: var(--green-dark);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.access-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.access-panel h2 {
+  font-size: 21px;
+}
+
+.access-form {
+  width: min(100%, 430px);
+}
+
+.access-form > label {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.access-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.access-controls input {
+  flex: 1;
+  min-width: 0;
+  min-height: 48px;
+  border: 1px solid #cbd4c9;
+  border-radius: 5px;
+  padding: 0 12px;
+  background: white;
+}
+
+.access-controls .primary-button {
+  min-width: 90px;
+}
+
 .workspace {
   width: min(100%, 760px);
   flex: 1;
@@ -484,6 +544,21 @@ h2 {
   .page-heading {
     align-items: flex-end;
     margin-bottom: 23px;
+  }
+
+  .access-panel {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 18px;
+    padding: 18px;
+  }
+
+  .access-controls {
+    flex-direction: column;
+  }
+
+  .access-controls .primary-button {
+    width: 100%;
   }
 
   h1 {

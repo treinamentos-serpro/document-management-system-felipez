@@ -9,8 +9,13 @@ async function getErrorMessage(response) {
   }
 }
 
-async function request(url, options) {
-  const response = await fetch(url, options);
+async function request(url, options = {}, token) {
+  const headers = new Headers(options.headers);
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  const response = await fetch(url, { ...options, headers });
   if (!response.ok) {
     throw new Error(await getErrorMessage(response));
   }
@@ -18,27 +23,29 @@ async function request(url, options) {
   return response;
 }
 
-export async function listDocuments() {
-  const response = await request(`${API_PREFIX}/documents`);
+export async function listDocuments(token) {
+  const response = await request(`${API_PREFIX}/documents`, {}, token);
   const payload = await response.json();
   return payload.documents;
 }
 
-export async function uploadDocument(file) {
+export async function uploadDocument(file, token) {
   const formData = new FormData();
   formData.append('file', file);
 
   const response = await request(`${API_PREFIX}/upload`, {
     method: 'POST',
     body: formData,
-  });
+  }, token);
   const payload = await response.json();
   return payload.document;
 }
 
-export async function downloadDocument(id) {
+export async function downloadDocument(id, token) {
   const response = await request(
     `${API_PREFIX}/documents/${encodeURIComponent(id)}/download`,
+    {},
+    token,
   );
   return response.blob();
 }
