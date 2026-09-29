@@ -1,11 +1,4 @@
-const path = require('node:path');
 const ApplicationError = require('../services/applicationError');
-
-function getSafeDownloadName(originalName) {
-  return path.basename(originalName.replace(/\\/g, '/'))
-    .replace(/[\u0000-\u001f\u007f]/g, '')
-    .trim() || 'document';
-}
 
 function createDocumentController(documentService) {
   return {
@@ -14,20 +7,25 @@ function createDocumentController(documentService) {
         throw new ApplicationError(400, 'FILE_REQUIRED', 'Envie um arquivo no campo "file".');
       }
 
-      const document = await documentService.createDocument(req.file);
+      const document = await documentService.createDocument(req.file, req.user.id);
       return res.status(201).json({ document });
     },
 
     list: (req, res) => {
       return res.status(200).json({
-        documents: documentService.listDocuments(),
+        documents: documentService.listDocuments(req.user.id),
       });
     },
 
     download: async (req, res, next) => {
-      const { document, filePath } = await documentService.getDownload(req.params.id);
-      res.type('application/octet-stream');
-      return res.download(filePath, getSafeDownloadName(document.originalName), (error) => {
+      const { document, filePath } = await documentService.getDownload(req.params.id, req.user.id);
+      return res.download(filePath, document.originalName, {
+        headers: {
+          'Content-Type': 'application/octet-stream',
+          'X-Content-Type-Options': 'nosniff',
+          'Cache-Control': 'private, no-store',
+        },
+      }, (error) => {
         if (!error) {
           return;
         }

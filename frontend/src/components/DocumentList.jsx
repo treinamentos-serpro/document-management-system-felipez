@@ -15,15 +15,7 @@ function getFileType(name) {
     : 'ARQ';
 }
 
-export default function DocumentList({ documents, isLoading, error }) {
-  if (isLoading) {
-    return <p className="list-state" role="status">Carregando documentos...</p>;
-  }
-
-  if (error) {
-    return <p className="list-state error-message" role="alert">{error}</p>;
-  }
-
+export default function DocumentList({ documents, token }) {
   if (documents.length === 0) {
     return (
       <div className="empty-state">
@@ -48,7 +40,7 @@ export default function DocumentList({ documents, isLoading, error }) {
               {formatDate(document.uploadedAt)}
             </p>
           </div>
-          <DownloadButton document={document} />
+          <DownloadButton document={document} token={token} />
         </article>
       ))}
     </div>
