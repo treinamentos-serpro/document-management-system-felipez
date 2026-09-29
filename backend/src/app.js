@@ -11,17 +11,85 @@
 // usando multer com diskStorage. Não utilize provedores externos.
 
 const express = require('express');
+const multer = require('multer');
+const path = require('node:path');
+const DocumentRepository = require('./repositories/documentRepository');
+const LocalFileRepository = require('./repositories/localFileRepository');
+const DocumentService = require('./services/documentService');
+const ApplicationError = require('./services/applicationError');
+const { createDocumentRouter } = require('./routes/documentRoutes');
 
-const app = express();
+const DEFAULT_MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+
+function getMaxFileSizeBytes(options) {
+  const configuredValue = options.maxFileSizeBytes ?? (
+    Number(process.env.MAX_FILE_SIZE_MB || 10) * 1024 * 1024
+  );
+
+  return Number.isSafeInteger(configuredValue) && configuredValue > 0
+    ? configuredValue
+    : DEFAULT_MAX_FILE_SIZE_BYTES;
+}
+
+function createApp(options = {}) {
+  const app = express();
+  const storageDir = options.storageDir
+    || process.env.DMS_STORAGE_DIR
+    || path.resolve(__dirname, '../storage');
+  const documentRepository = new DocumentRepository();
+  const fileRepository = new LocalFileRepository(storageDir);
+  const documentService = new DocumentService({
+    documentRepository,
+    fileRepository,
+    owner: options.owner || process.env.DMS_DEFAULT_OWNER || 'local',
+  });
+
+  app.use(express.json());
+  app.get('/health', (req, res) => {
+    res.json({ status: 'ok' });
+  });
+  app.use(createDocumentRouter({
+    documentService,
+    storageDir,
+    maxFileSizeBytes: getMaxFileSizeBytes(options),
+  }));
+  app.use((error, req, res, next) => {
+    if (res.headersSent) {
+      return next(error);
+    }
+
+    if (error instanceof multer.MulterError) {
+      const tooLarge = error.code === 'LIMIT_FILE_SIZE';
+      return res.status(tooLarge ? 413 : 400).json({
+        error: {
+          code: tooLarge ? 'FILE_TOO_LARGE' : 'INVALID_REQUEST',
+          message: tooLarge
+            ? 'O arquivo excede o tamanho máximo permitido.'
+            : 'A requisição de upload é inválida.',
+        },
+      });
+    }
+
+    if (error instanceof ApplicationError) {
+      return res.status(error.status).json({
+        error: { code: error.code, message: error.message },
+      });
+    }
+
+    console.error(error);
+    return res.status(500).json({
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: 'Ocorreu um erro interno.',
+      },
+    });
+  });
+
+  return app;
+}
+
+const app = createApp();
 const PORT = process.env.PORT || 3000;
-
-app.use(express.json());
-
-// Endpoint de verificação de saúde. As demais rotas (/upload, /documents,
-// /documents/:id/download) serão implementadas durante o Passo 2.
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
-});
 
 if (require.main === module) {
   app.listen(PORT, () => {
@@ -30,3 +98,4 @@ if (require.main === module) {
 }
 
 module.exports = app;
+module.exports.createApp = createApp;
